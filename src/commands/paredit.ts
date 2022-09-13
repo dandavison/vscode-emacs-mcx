@@ -1,9 +1,13 @@
 import * as paredit from "paredit.js";
-import { TextDocument, Selection, Range, TextEditor, Position } from "vscode";
+import { TextDocument, Selection, Range, TextEditor, Position, window } from "vscode";
 import { EmacsCommand } from ".";
 import { KillYankCommand } from "./kill";
 import { AppendDirection } from "../kill-yank";
 import { revealPrimaryActive } from "./helpers/reveal";
+
+const outputChannel = window.createOutputChannel("Emacs Paredit");
+const log = outputChannel.appendLine;
+outputChannel.show();
 
 type PareditNavigatorFn = (ast: paredit.AST, idx: number) => number;
 
@@ -182,6 +186,8 @@ export class PareditKill extends KillYankCommand {
     const doc = textEditor.document;
     const src = doc.getText(); // TODO: doc.getText is called a second time, in makeSexpTravelFunc
 
+    const ctx = (idx: number) => `${src.charAt(idx - 1)}|${src.charAt(idx)}`.replace("\n", "\\n");
+
     const killRanges = textEditor.selections.map((selection) => {
       const navigatorFn: PareditNavigatorFn = (ast: paredit.AST, idx: number) => {
         while (src[idx] == " " || src[idx] == "\t") {
@@ -192,6 +198,7 @@ export class PareditKill extends KillYankCommand {
         const lineEnd = doc.offsetAt(line.range.end);
         if (idx >= lineEnd) {
           const nextLine = textEditor.document.lineAt(lineNumber + 1);
+          log("Moving to next line");
           return doc.offsetAt(nextLine.range.start);
         } else {
           let curr = idx;
@@ -199,6 +206,7 @@ export class PareditKill extends KillYankCommand {
           do {
             prev = curr;
             curr = this.indexAfterKillSexp(ast, prev);
+            log(`stopped at: '${ctx(curr)}' ${curr} < ${lineEnd}`);
           } while (prev < curr && curr < lineEnd);
           return curr;
         }
