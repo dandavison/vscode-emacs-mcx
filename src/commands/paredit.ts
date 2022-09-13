@@ -178,6 +178,9 @@ export class PareditKill extends KillYankCommand {
     isInMarkMode: boolean,
     prefixArgument: number | undefined
   ): Promise<void> {
+    this.killYanker.prefixArgument = prefixArgument;
+    this.killYanker.log = log;
+    prefixArgument = undefined;
     const repeat = prefixArgument === undefined ? 1 : prefixArgument;
     if (repeat <= 0) {
       return;
@@ -216,7 +219,10 @@ export class PareditKill extends KillYankCommand {
       return new Range(selection.anchor, newActivePosition);
     });
 
-    await this.killYanker.kill(killRanges.filter((range) => !range.isEmpty));
+    const ranges = killRanges.filter((range) => !range.isEmpty);
+    log(`Prefix argument: ${prefixArgument}`);
+    log(`Ranges:          ${ranges.map((r) => [r.start.character, r.end.character])}`);
+    await this.killYanker.kill(ranges);
 
     revealPrimaryActive(textEditor);
   }

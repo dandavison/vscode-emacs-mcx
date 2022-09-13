@@ -11,6 +11,8 @@ import { AppendDirection, EditorTextKillRingEntity } from "./kill-ring-entity/ed
 export { AppendDirection };
 
 export class KillYanker implements vscode.Disposable {
+  log: (value: string) => void = console.log;
+  prefixArgument: number | undefined;
   private textEditor: TextEditor;
   private killRing: KillRing | null; // If null, killRing is disabled and only clipboard is used.
   private minibuffer: Minibuffer;
@@ -200,11 +202,21 @@ export class KillYanker implements vscode.Disposable {
     let success = false;
     let trial = 0;
     while (!success && trial < maxTrials) {
-      success = await this.textEditor.edit((editBuilder) => {
-        ranges.forEach((range) => {
-          editBuilder.delete(range);
+      if (this.prefixArgument) {
+        const decorationType = vscode.window.createTextEditorDecorationType({
+          borderColor: "#a83232",
+          backgroundColor: "#dddddd",
         });
-      });
+        this.textEditor.setDecorations(decorationType, ranges);
+        setTimeout(() => this.textEditor.setDecorations(decorationType, []), 5000); // remove decoration
+        success = true;
+      } else {
+        success = await this.textEditor.edit((editBuilder) => {
+          ranges.forEach((range) => {
+            editBuilder.delete(range);
+          });
+        });
+      }
       trial++;
     }
 
