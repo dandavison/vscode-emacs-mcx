@@ -1,7 +1,6 @@
 import { Minibuffer } from "src/minibuffer";
 import * as vscode from "vscode";
 import { Position, Range, TextEditor } from "vscode";
-import { EditorIdentity } from "../editorIdentity";
 import { MessageManager } from "../message";
 import { equalPositions } from "../utils";
 import { KillRing, KillRingEntity } from "./kill-ring";
@@ -43,7 +42,7 @@ export class KillYanker implements vscode.Disposable {
     vscode.window.onDidChangeTextEditorSelection(this.onDidChangeTextEditorSelection, this, this.disposables);
   }
 
-  public setTextEditor(textEditor: TextEditor) {
+  public setTextEditor(textEditor: TextEditor): void {
     this.textEditor = textEditor;
   }
 
@@ -51,13 +50,13 @@ export class KillYanker implements vscode.Disposable {
     return this.textEditor;
   }
 
-  public dispose() {
+  public dispose(): void {
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
   }
 
-  public onDidChangeTextDocument(e: vscode.TextDocumentChangeEvent) {
+  public onDidChangeTextDocument(e: vscode.TextDocumentChangeEvent): void {
     // XXX: Is this a correct way to check the identity of document?
     if (e.document.uri.toString() === this.textEditor.document.uri.toString()) {
       this.docChangedAfterYank = true;
@@ -67,14 +66,16 @@ export class KillYanker implements vscode.Disposable {
     this.textChangeCount++;
   }
 
-  public onDidChangeTextEditorSelection(e: vscode.TextEditorSelectionChangeEvent) {
-    if (new EditorIdentity(e.textEditor).isEqual(new EditorIdentity(this.textEditor))) {
+  public onDidChangeTextEditorSelection(e: vscode.TextEditorSelectionChangeEvent): void {
+    const targetEditorId = e.textEditor.document.uri.toString();
+    const thisEditorId = this.textEditor.document.uri.toString();
+    if (targetEditorId === thisEditorId) {
       this.docChangedAfterYank = true;
       this.isAppending = false;
     }
   }
 
-  public async kill(ranges: Range[], appendDirection: AppendDirection = AppendDirection.Forward) {
+  public async kill(ranges: Range[], appendDirection: AppendDirection = AppendDirection.Forward): Promise<void> {
     if (!equalPositions(this.getCursorPositions(), this.prevKillPositions)) {
       this.isAppending = false;
     }
@@ -87,7 +88,11 @@ export class KillYanker implements vscode.Disposable {
     this.prevKillPositions = this.getCursorPositions();
   }
 
-  public async copy(ranges: Range[], shouldAppend = false, appendDirection: AppendDirection = AppendDirection.Forward) {
+  public async copy(
+    ranges: Range[],
+    shouldAppend = false,
+    appendDirection: AppendDirection = AppendDirection.Forward
+  ): Promise<void> {
     const newKillEntity = new EditorTextKillRingEntity(
       ranges.map((range) => ({
         range,
@@ -109,7 +114,7 @@ export class KillYanker implements vscode.Disposable {
     }
   }
 
-  public cancelKillAppend() {
+  public cancelKillAppend(): void {
     this.isAppending = false;
   }
 
@@ -143,7 +148,7 @@ export class KillYanker implements vscode.Disposable {
     await vscode.commands.executeCommand("paste", { text: flattenedText });
   }
 
-  public async yank() {
+  public async yank(): Promise<void> {
     if (this.killRing === null) {
       return vscode.commands.executeCommand("editor.action.clipboardPasteAction");
     }
@@ -165,7 +170,7 @@ export class KillYanker implements vscode.Disposable {
     this.prevYankPositions = this.textEditor.selections.map((selection) => selection.active);
   }
 
-  public async yankPop() {
+  public async yankPop(): Promise<void> {
     if (this.killRing === null) {
       return;
     }

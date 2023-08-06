@@ -12,7 +12,6 @@ import * as PareditCommands from "./commands/paredit";
 import * as RectangleCommands from "./commands/rectangle";
 import { RecenterTopBottom } from "./commands/recenter";
 import { EmacsCommandRegistry } from "./commands/registry";
-import { EditorIdentity } from "./editorIdentity";
 import { KillYanker } from "./kill-yank";
 import { KillRing } from "./kill-yank/kill-ring";
 import { logger } from "./logger";
@@ -32,7 +31,7 @@ export interface IEmacsController {
 
   readonly inRectMarkMode: boolean;
   readonly nativeSelections: readonly vscode.Selection[];
-  moveRectActives: (navigateFn: (currentActives: vscode.Position) => vscode.Position) => void;
+  moveRectActives: (navigateFn: (currentActives: vscode.Position, index: number) => vscode.Position) => void;
 
   registerDisposable: (disposable: vscode.Disposable) => void;
 }
@@ -72,9 +71,9 @@ export class EmacsEmulator implements IEmacsController, vscode.Disposable {
       this.textEditor.selections = rectSelections;
     }
   }
-  public moveRectActives(navigateFn: (currentActive: vscode.Position) => vscode.Position): void {
-    const newNativeSelections = this._nativeSelections.map((s) => {
-      const newActive = navigateFn(s.active);
+  public moveRectActives(navigateFn: (currentActive: vscode.Position, index: number) => vscode.Position): void {
+    const newNativeSelections = this._nativeSelections.map((s, i) => {
+      const newActive = navigateFn(s.active, i);
       return new vscode.Selection(s.anchor, newActive);
     });
     this._nativeSelections = newNativeSelections;
@@ -175,6 +174,7 @@ export class EmacsEmulator implements IEmacsController, vscode.Disposable {
     this.commandRegistry.register(new PareditCommands.MarkSexp(this));
     this.commandRegistry.register(new PareditCommands.KillSexp(this, killYanker));
     this.commandRegistry.register(new PareditCommands.BackwardKillSexp(this, killYanker));
+    this.commandRegistry.register(new PareditCommands.PareditKill(this, killYanker));
 
     this.commandRegistry.register(new AddSelectionToNextFindMatch(this));
     this.commandRegistry.register(new AddSelectionToPreviousFindMatch(this));
@@ -221,7 +221,9 @@ export class EmacsEmulator implements IEmacsController, vscode.Disposable {
   }
 
   public onDidChangeTextEditorSelection(e: vscode.TextEditorSelectionChangeEvent): void {
-    if (new EditorIdentity(e.textEditor).isEqual(new EditorIdentity(this.textEditor))) {
+    const targetEditorId = e.textEditor.document.uri.toString();
+    const thisEditorId = this.textEditor.document.uri.toString();
+    if (targetEditorId === thisEditorId) {
       this.onDidInterruptTextEditor();
 
       if (!this.rectMode) {
